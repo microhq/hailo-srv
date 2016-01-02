@@ -1,10 +1,9 @@
 package main
 
 import (
-	"github.com/codegangsta/cli"
 	log "github.com/golang/glog"
-	"github.com/micro/go-micro/cmd"
-	"github.com/micro/go-micro/server"
+	"github.com/micro/cli"
+	micro "github.com/micro/go-micro"
 
 	"github.com/micro/hailo-srv/hailo"
 	"github.com/micro/hailo-srv/handler"
@@ -14,29 +13,27 @@ import (
 )
 
 func main() {
-	cmd.Flags = append(cmd.Flags,
-		cli.StringFlag{
-			Name:   "api_token",
-			EnvVar: "API_TOKEN",
-			Usage:  "Hailo API token",
-		},
+	service := micro.NewService(
+		micro.Name("go.micro.srv.hailo"),
+		micro.Flags(
+			cli.StringFlag{
+				Name:   "api_token",
+				EnvVar: "API_TOKEN",
+				Usage:  "Hailo API token",
+			},
+		),
+		micro.Action(func(c *cli.Context) {
+			hailo.Token = c.String("api_token")
+		}),
 	)
 
-	cmd.Actions = append(cmd.Actions, func(c *cli.Context) {
-		hailo.Token = c.String("api_token")
-	})
+	service.Init()
 
-	cmd.Init()
+	api.RegisterApiHandler(service.Server(), &handler.Api{})
+	auth.RegisterAuthHandler(service.Server(), &handler.Auth{})
+	drivers.RegisterDriversHandler(service.Server(), &handler.Drivers{})
 
-	server.Init(
-		server.Name("go.micro.srv.hailo"),
-	)
-
-	api.RegisterApiHandler(server.DefaultServer, &handler.Api{})
-	auth.RegisterAuthHandler(server.DefaultServer, &handler.Auth{})
-	drivers.RegisterDriversHandler(server.DefaultServer, &handler.Drivers{})
-
-	if err := server.Run(); err != nil {
+	if err := service.Run(); err != nil {
 		log.Fatal(err)
 	}
 }
